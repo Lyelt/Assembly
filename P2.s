@@ -101,7 +101,11 @@ convertInput:
 	// ----Call the appropriate conversion function
 	// ----Parameters: input string, conversion choice
 	// ----Returns: equivalent output string
-	mov pc, lr
+	mov r8, pc // save pc
+		
+
+
+	mov pc, r8
 
 convertToHex:
 	// ----Convert decimal value to hex string (8 chars)
@@ -123,14 +127,75 @@ validateInput:
 	// ----Determine if the input string can be stored in 32-bit 2's compliment
 	// ----Parameters: input string
 	// ----Returns: 1 if input is valid
-	mov r0, #1
-	mov pc, lr
+	mov r4, r0 // save param
+	ldr r4, [r4]
+	mov r0, #1 // default: true
+
+	mov r3, #0  // start
+	mov r2, #11 // end
+	charCheckLoop:
+		cmp r3, r2
+		bge checkLast // if we reached 11th byte check if null 
+
+		ldrb r1, [r4, r3] // each char in the input
+		// if null, end of input
+		cmp r1, #0
+		
+		b done 
+		// valid range is 0-9
+		sub r5, r1, #48
+		cmp r5, #0
+		blt checkBadData // could be + or -
+		cmp r5, #9
+		bgt bad
+		
+		add r3, r3, #1 
+		b charCheckLoop
+
+	checkLast:
+		ldrb r1, [r4, r3] 
+		cmp r1, #0 // if 11th byte isnt null, overflow
+		bne bad
+		b done
+	
+	checkBadData:
+		// Any non-digit in non-first position is bad
+		cmp r3, #0
+		bne bad
+		
+		mov r6, #0
+		// If its a + or - thats fine
+		cmp r1, #43 // +
+		mov r6, #1
+		cmp r1, #45 // -
+		mov r6, #1
+		cmp r6, #1
+		bne bad 
+
+		// increment and loop
+		add r3, r3, #1
+		b charCheckLoop
+
+	bad:	
+		mov r0, #0 // found bad input
+	
+	done:
+		mov pc, lr
 
 validateChoice:
 	// ----Determine if user entered valid choice (h, o, b)
 	// ----Parameters: input char
 	// ----Returns: 1 if input is valid
-	mov r0, #1
+	mov r1, r0 // save param
+	mov r0, #0 // default: false
+	cmp r1, #104 // h
+	beq good
+	cmp r1, #111 // o
+	beq good
+	cmp r1, #98  // b
+	beq good
+	good:
+		mov r0, #1 // found good input
 	mov pc, lr
 
 main:
@@ -172,7 +237,7 @@ flush:
 outputWrite:
 	.asciz "Your converted output: \n"
 input:
-	.space 10
+	.space 11
 inputChoice:
 	.byte
 output:
