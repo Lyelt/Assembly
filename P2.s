@@ -5,13 +5,14 @@
 .cpu cortex-a53
 .global main
 .syntax unified
+.fpu neon-fp-armv8
 
 .text
 
 print:
 	// ----Primpt prompt, echo input, convert, and print result
 	// ----Parameters: input string, conversion choice
-	mov r8, lr
+	mov r7, lr
 promptLoop:	
 	// write prompt
 	mov r0, #1
@@ -26,9 +27,10 @@ promptLoop:
 	
 	// validate input
 	ldr r0, =input // Input string passed to validation function
-	ldr r0, [r0]
 	bl validateInput
-	cmp r0, #1 // Input is valid
+	mov r9, r1  // store length of input
+	mov r10, r2 // 1 if negative, 0 if positive
+	cmp r0, #1  // Input is valid
 	bne promptLoop
 	b choiceLoop
 	
@@ -54,13 +56,16 @@ choiceLoop:
 
 convert:
 // ------ both choices have been validated
-	ldr r0, =input
-	ldr r0, [r0]
-	ldr r1, =inputChoice
-	ldr r1, [r1]
-	bl convertInput
+	mov r11, lr
+	ldr r0, =input // address of input string
+	mov r1, r9     // num of digits
+	mov r3, r10    // negative flag
+	ldr r2, =inputChoice // h, o, b
+	ldr r2, [r2]
+	bl convertInput // r0 = addr of input string. r1 = length. r2 = conversion choice, r3 = negative flag
 
-	mov r10, r0 // result from conversion stored in r10
+	mov r4, r0 // label result
+	mov r5, r1 // length of output string
 
 	// echo user input
 	mov r0, #1
@@ -92,56 +97,129 @@ convert:
 	mov r2, #24
 	bl write // output
 
-	mov pc, r8 // previous contents of lr
+	mov r0, #1
+	mov r1, r4
+	mov r2, r5
+	bl write // the converted string
+
+	mov r0, #1
+	ldr r1, =flush
+	mov r2, #1
+	bl write
+
+	mov pc, r11 // previous contents of lr
 
 	
 	
 
 convertInput:
 	// ----Call the appropriate conversion function
-	// ----Parameters: input string, conversion choice
-	// ----Returns: equivalent output string
-	mov r8, pc // save pc
-		
+	// ----Parameters: address of input string, length of input string, conversion choice, negative flag
+	// ----Returns: addr of label containing output, string length
+	mov r12, lr // save pc
 
+	bl convertToDecimal // convert the input string to a decimal number
 
-	mov pc, r8
+	cmp r2, #104
+	bleq convertToHex
+
+	cmp r2, #111
+	bleq convertToOctal
+
+	cmp r2, #98 
+	bleq convertToBinary
+
+	mov pc, r12
 
 convertToHex:
 	// ----Convert decimal value to hex string (8 chars)
+
+	//mov r0, =hexString
+	//mov r0, [r0]
+	mov r1, #8
 	mov pc, lr
 
 convertToOctal:
 	// ----Convert decimal value to octal string (11 chars)
+	mov r1, #11
 	mov pc, lr
 
 convertToBinary:
 	// ----Convert decimal value to binary string (32 chars)
-	mov pc, lr
+	// ----r0: decimal input, r1: length
+	ldr r4, =binString
+	mov r5, #31 // start
+	mov r6, #0  // end
+
+	binaryLoop:
+		cmp r5, r6
+		blt binaryEnd // hit 0, we're done
+
+		and r3, r0, #1  // mask digit with 1 bit
+		add r3, r3, #48 // convert back to ascii
+		strb r3, [r4, r5] 
+		lsr r0, #1
+		
+		sub r5, r5, #1 // decrement and loop
+		b binaryLoop
+
+	binaryEnd:
+		ldr r0, =binString
+		mov r1, #32
+		mov pc, lr
 
 convertToDecimal:
 	// ----Convert input string to 32-bit 2's compliment form
-	mov pc, lr
+	mov r9, r3  // negative flag
+	mov r10, r1 // length of the input string
+	mov r3, #0  // ending index
+	mov r4, #0  // running total
+	mov r7, #1  // multiplier
+
+	cmp r9, #1
+	beq negativeLoop
+
+	decimalLoop:
+		cmp r10, r3 // have we hit the end
+		ble decimalEnd
+		
+		ldrb r6, [r0, r10] // least significant digit to most
+		
+		mul r5, r6, r7 // mult by multiplier
+		add r4, r4, r5 // add to running total
+		mov r8, #10
+		mul r7, r7, r8 // update multiplier
+
+		sub r10, r10, #1
+		b decimalLoop
+
+	negativeLoop:
+		
+		b negativeLoop
+
+
+	decimalEnd:
+		mov r0, r4
+		mov pc, lr
 
 validateInput:
 	// ----Determine if the input string can be stored in 32-bit 2's compliment
 	// ----Parameters: input string
-	// ----Returns: 1 if input is valid
+	// ----Returns: 1 if input is valid, length of input string, 1 if negative
 	mov r4, r0 // save param
-	ldr r4, [r4]
-	mov r0, #1 // default: true
-
+	mov r0, #1 // default: valid
+	mov r8, #0 // default: positive
 	mov r3, #0  // start
 	mov r2, #11 // end
 	charCheckLoop:
 		cmp r3, r2
-		bge checkLast // if we reached 11th byte check if null 
+		bge checkLast // if we reached 11th byte check if it has data
 
 		ldrb r1, [r4, r3] // each char in the input
-		// if null, end of input
-		cmp r1, #0
-		
-		b done 
+		// if theres no data, end of input
+		cmp r1, #10	
+		beq finalCheck
+ 
 		// valid range is 0-9
 		sub r5, r1, #48
 		cmp r5, #0
@@ -154,7 +232,7 @@ validateInput:
 
 	checkLast:
 		ldrb r1, [r4, r3] 
-		cmp r1, #0 // if 11th byte isnt null, overflow
+		cmp r1, #10 // if 11th byte isnt null, overflow
 		bne bad
 		b done
 	
@@ -168,6 +246,7 @@ validateInput:
 		cmp r1, #43 // +
 		mov r6, #1
 		cmp r1, #45 // -
+		moveq r8, #1
 		mov r6, #1
 		cmp r6, #1
 		bne bad 
@@ -176,10 +255,21 @@ validateInput:
 		add r3, r3, #1
 		b charCheckLoop
 
+	finalCheck:
+		cmp r3, #10 // If there are exactly 10 digits
+		beq checkOverflow // we have to check for overflow
+		b done // Otherwise we're done
+
+	checkOverflow:
+		// umul and adds
+		// 
+
 	bad:	
 		mov r0, #0 // found bad input
 	
 	done:
+		mov r2, r8 // if input began with - sign
+		mov r1, r3 // number of valid chars we read
 		mov pc, lr
 
 validateChoice:
@@ -194,9 +284,11 @@ validateChoice:
 	beq good
 	cmp r1, #98  // b
 	beq good
+	b end // if none matched, bad choice
 	good:
 		mov r0, #1 // found good input
-	mov pc, lr
+	end:
+		mov pc, lr
 
 main:
 
@@ -236,9 +328,16 @@ flush:
 	.asciz "\n"
 outputWrite:
 	.asciz "Your converted output: \n"
-input:
-	.space 11
 inputChoice:
 	.byte
+hexString:
+	.space 8
+octString:
+	.space 11
+binString:
+	.space 32
 output:
 	.space 32
+input:
+	.space 11
+
