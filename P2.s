@@ -133,16 +133,51 @@ convertInput:
 
 convertToHex:
 	// ----Convert decimal value to hex string (8 chars)
+	ldr r4, =hexString
+	mov r5, #7 // start
+	mov r6, #0 // end
 
-	//mov r0, =hexString
-	//mov r0, [r0]
-	mov r1, #8
-	mov pc, lr
+	hexLoop:
+		cmp r5, r6
+		blt hexEnd
+	
+		and r3, r0, #15 // mask with 15
+		cmp r3, #9
+		addgt r3, r3, #55  // A-F ASCII
+		addle r3, r3, #48 // 0-9 ASCII
+		strb r3, [r4, r5]
+		lsr r0, #4 // next 4 bits
+
+		sub r5, r5, #1
+		b hexLoop
+	hexEnd:
+		ldr r0, =hexString
+		mov r1, #8
+		mov pc, lr
 
 convertToOctal:
 	// ----Convert decimal value to octal string (11 chars)
-	mov r1, #11
-	mov pc, lr
+	ldr r4, =octString
+	mov r5, #10 // start
+	mov r6, #0  // end
+
+	octalLoop:
+		cmp r5, r6
+		blt octalEnd
+		
+		and r3, r0, #7 // mask with 7
+		add r3, r3, #48 // ascii
+		strb r3, [r4, r5]
+		lsr r0, #3  // next three bits
+		
+		sub r5, r5, #1
+		b octalLoop 
+			
+
+	octalEnd:
+		ldr r0, =octString
+		mov r1, #11
+		mov pc, lr
 
 convertToBinary:
 	// ----Convert decimal value to binary string (32 chars)
@@ -171,32 +206,32 @@ convertToBinary:
 convertToDecimal:
 	// ----Convert input string to 32-bit 2's compliment form
 	mov r9, r3  // negative flag
-	mov r10, r1 // length of the input string
+	sub r10, r1, #1 // length of the input string - 1
 	mov r3, #0  // ending index
 	mov r4, #0  // running total
 	mov r7, #1  // multiplier
 
-	cmp r9, #1
-	beq negativeLoop
-
 	decimalLoop:
 		cmp r10, r3 // have we hit the end
-		ble decimalEnd
+		blt negativeCheck
 		
 		ldrb r6, [r0, r10] // least significant digit to most
-		
-		mul r5, r6, r7 // mult by multiplier
-		add r4, r4, r5 // add to running total
+		sub r6, r6, #48 // Subtract ASCII 48 to get digit value
+		mul r5, r6, r7  // mult by multiplier
+		add r4, r4, r5  // add to running total
 		mov r8, #10
-		mul r7, r7, r8 // update multiplier
+		mul r7, r7, r8  // update multiplier
 
 		sub r10, r10, #1
 		b decimalLoop
 
-	negativeLoop:
+	negativeCheck: 
+		cmp r9, #1
+		bne decimalEnd
 		
-		b negativeLoop
-
+		ldr r5, =#0xFFFFFFFF
+		eor r4, r4, r5
+		add r4, r4, #1
 
 	decimalEnd:
 		mov r0, r4
@@ -314,6 +349,7 @@ main:
 		swi 0
 
 .data
+.align 4
 err:
 	.asciz "Input must be able to fit in 32 bit 2's compliment."
 prompt:
