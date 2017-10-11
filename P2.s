@@ -52,15 +52,18 @@ choiceLoop:
 	bl validateChoice
 	cmp r0, #1 // input is valid
 	bne choiceLoop
-	b convert
+bl convert
+mov pc, r7
 
 convert:
 // ------ both choices have been validated
-	mov r11, lr
+	stmfd sp!, {r7, fp, lr}
+
+	//mov r11, lr
 	ldr r0, =input // address of input string
 	mov r1, r9     // num of digits
 	mov r3, r10    // negative flag
-	ldr r2, =inputChoice // h, o, b
+	ldr r2, =inputChoice // x, o, b
 	ldr r2, [r2]
 	bl convertInput // r0 = addr of input string. r1 = length. r2 = conversion choice, r3 = negative flag
 
@@ -106,21 +109,19 @@ convert:
 	ldr r1, =flush
 	mov r2, #1
 	bl write
-
-	mov pc, r11 // previous contents of lr
-
-	
-	
+		
+	ldmfd sp!, {r7, fp, lr}
+	mov pc, lr
 
 convertInput:
 	// ----Call the appropriate conversion function
 	// ----Parameters: address of input string, length of input string, conversion choice, negative flag
 	// ----Returns: addr of label containing output, string length
-	mov r12, lr // save pc
+	stmfd sp!, {lr}
 
 	bl convertToDecimal // convert the input string to a decimal number
 
-	cmp r2, #104
+	cmp r2, #120
 	bleq convertToHex
 
 	cmp r2, #111
@@ -129,7 +130,8 @@ convertInput:
 	cmp r2, #98 
 	bleq convertToBinary
 
-	mov pc, r12
+	ldmfd sp!, {lr}
+	mov pc, lr
 
 convertToHex:
 	// ----Convert decimal value to hex string (8 chars)
@@ -210,7 +212,10 @@ convertToDecimal:
 	mov r3, #0  // ending index
 	mov r4, #0  // running total
 	mov r7, #1  // multiplier
-
+	
+	cmp r9, #1
+	addeq r3, r3, #1 // dont try to include the negative sign when converting
+	
 	decimalLoop:
 		cmp r10, r3 // have we hit the end
 		blt negativeCheck
@@ -241,6 +246,7 @@ validateInput:
 	// ----Determine if the input string can be stored in 32-bit 2's compliment
 	// ----Parameters: input string
 	// ----Returns: 1 if input is valid, length of input string, 1 if negative
+	stmfd sp!, {r4, r5, r6, r7, r8, lr}
 	mov r4, r0 // save param
 	mov r0, #1 // default: valid
 	mov r8, #0 // default: positive
@@ -252,13 +258,13 @@ validateInput:
 
 		ldrb r1, [r4, r3] // each char in the input
 		// if theres no data, end of input
-		cmp r1, #10	
+		cmp r1, #10
 		beq finalCheck
  
 		// valid range is 0-9
 		sub r5, r1, #48
 		cmp r5, #0
-		blt checkBadData // could be + or -
+		blt checkBadData // could be -
 		cmp r5, #9
 		bgt bad
 		
@@ -266,7 +272,7 @@ validateInput:
 		b charCheckLoop
 
 	checkLast:
-		ldrb r1, [r4, r3] 
+		ldrb r1, [r4, r3]
 		cmp r1, #10 // if 11th byte isnt null, overflow
 		bne bad
 		b done
@@ -277,14 +283,10 @@ validateInput:
 		bne bad
 		
 		mov r6, #0
-		// If its a + or - thats fine
-		cmp r1, #43 // +
-		mov r6, #1
+		// If its a - thats fine
 		cmp r1, #45 // -
 		moveq r8, #1
-		mov r6, #1
-		cmp r6, #1
-		bne bad 
+		bne bad
 
 		// increment and loop
 		add r3, r3, #1
@@ -296,24 +298,42 @@ validateInput:
 		b done // Otherwise we're done
 
 	checkOverflow:
-		// umul and adds
-		// 
+		// smull and adds
+		mov r2, #0 // end number
+		mov r5, #1 // multiplier
+		mov r6, #0 // running total
+
+		overflowLoop:
+			cmp r3, r2
+			blt done
+
+			ldrb r1, [r4, r3]
+			sub r1, r1, #48
+			smull r1, r4, r1, r5 // rdLo rdHi
+			cmp r4, #0    	     // overflow in the high register
+			bne bad
+			adds r6, r6, r1	     // add to running total
+			bvs bad		     // if overflow after adding
+			
+			sub r3, r3, #1
+			b overflowLoop
 
 	bad:	
 		mov r0, #0 // found bad input
 	
 	done:
-		mov r2, r8 // if input began with - sign
+		mov r2, r8 // negative flag
 		mov r1, r3 // number of valid chars we read
+		ldmfd sp!, {r4, r5, r6, r7, r8, lr}
 		mov pc, lr
 
 validateChoice:
-	// ----Determine if user entered valid choice (h, o, b)
+	// ----Determine if user entered valid choice (x, o, b)
 	// ----Parameters: input char
 	// ----Returns: 1 if input is valid
 	mov r1, r0 // save param
 	mov r0, #0 // default: false
-	cmp r1, #104 // h
+	cmp r1, #120 // x
 	beq good
 	cmp r1, #111 // o
 	beq good
@@ -326,46 +346,28 @@ validateChoice:
 		mov pc, lr
 
 main:
-
 	bl print
 	mov r0, #0
 	mov r7, #1
 	swi 0
 
-	error:  // error message and exit
-		mov r0, #1
-		ldr r1, =err
-		mov r2, #43
-		bl write
-
-		
-		mov r0, #1
-		ldr r1, =flush
-		mov r2, #1
-		bl write
-
-		mov r0, #0
-		mov r7, #1
-		swi 0
-
 .data
-.align 4
-err:
-	.asciz "Input must be able to fit in 32 bit 2's compliment."
 prompt:
 	.asciz "Enter a decimal value (-2,147,483,648 to 2,147,483,647): \n"
 choice:
-	.asciz "Convert to hex, octal, or binary (h, o, b)? \n"
+	.asciz "Convert to hex, octal, or binary (x, o, b)? \n"
 echoprompt:
 	.asciz "Conversion value:  "
 echochoice:
 	.asciz "Conversion choice: "
 flush:
-	.asciz "\n"
+	.ascii "\n"
 outputWrite:
-	.asciz "Your converted output: \n"
+	.asciz "Your converted output: "
+	.align 1
 inputChoice:
-	.byte
+	.byte 0 
+	.align 2
 hexString:
 	.space 8
 octString:
