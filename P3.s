@@ -193,7 +193,8 @@ readHiddenMessage:
 	// filename in r0
 	// image size in r1
 	mov r4, r0
-	div r0, r1, 4 // Max number of bytes for message
+	mov r6, #4
+	udiv r0, r1, r6 // Max number of bytes for message
 	mov r6, r0    // save this result for later
 	bl calloc     // calloc to set all to 0
 	mov r5, r0    // result of malloc
@@ -248,7 +249,10 @@ main:
 
 	// mov r1, r0
 	// Hide message in the image and write it out
+	mov  r2, r1   // size of message to hide
+	mov  r1, r0   // address of message
 	mov  r0, r4   // address of image read
+	
 	bl   hideMessage 
 
 	mov  r0, r4
