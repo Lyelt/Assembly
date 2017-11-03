@@ -54,7 +54,7 @@ readimage:
 	bl   fclose
 	// return the result of malloc
 	mov  r0, r5
-
+	mov  r1, r6
 	ldmfd sp!, {r4,r5,r6,lr}
 	mov  pc, lr
 	
@@ -102,6 +102,12 @@ writeimage:
 	ldmfd sp!, {r4,r5,r6,r7,lr}
 	mov  pc, lr
 
+// ------------------------------------------------------------------------------------
+// Parameters: r0 = address of original image
+//             r1 = address of encrypted message
+//             r2 = length of message in bytes
+//             r3 = key value of cipher
+
 hideMessage:
 	stmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r12,lr}
 
@@ -140,6 +146,10 @@ hideMessage:
 
 		b messageLoop
 
+// ---------------------------------------------------------------------------------
+// Parameters: r0 = data to hide
+//             r1 = size of data in bytes
+// 
 hide:
 	// r0 contains the data
 	// r1 contains the number of times to loop (ie. number of bytes)
@@ -187,6 +197,11 @@ doneHide:
 	ldmfd sp!, {r4,r5,r6,r7,r8,r9,r10,r12,lr}
 	mov  pc, lr
 
+// ------------------------------------------------------------------------------------
+// Parameters: r0 = address of filename location
+//	       r1 = size of image in bytes
+// Returns:    r0 = address of message
+//	       r1 = size of message in bytes
 readHiddenMessage:
 	stmfd sp!, {r4, r5, r6, r7, r8, r9, lr}
 
@@ -194,10 +209,10 @@ readHiddenMessage:
 	// image size in r1
 	mov r4, r0
 	mov r6, #4
-	udiv r0, r1, r6 // Max number of bytes for message
-	mov r6, r0    // save this result for later
-	bl calloc     // calloc to set all to 0
-	mov r5, r0    // result of malloc
+	udiv r6, r1, r6 // Max number of bytes for message
+	mov r0, r6  
+	bl malloc     // calloc to set all to 0
+	mov r5, r0    // result of calloc
 
 	// open file for read
 	mov  r0, r4
@@ -232,16 +247,19 @@ main:
 	// Read the original image
 	ldr  r0, =file1
 	bl   readimage
-	// Store result of malloc
-	mov  r4, r0
+	
+	mov  r4, r0 // result of malloc
+	mov  r5, r1 // file size
 
 	ldr  r0, =file2 // filename
-	mov  r1, r4 	// bytes allocated for image
+	mov  r1, r5 	// bytes allocated for image
 
 	// Read the hidden message
 	bl readHiddenMessage
 	// r0 contains result of malloc
 	// r1 contains size of message
+	mov r6, r0
+	mov r7, r1
 	// Encrypt the message with a cipher
 	// bl encryptMessage
 	// r0 contains message after encryption
@@ -258,7 +276,7 @@ main:
 	mov  r0, r4
 	bl   free
 
-	mov  r0, r5
+	mov  r0, r6
 	bl   free
  
 	mov   r0, #0
@@ -278,7 +296,7 @@ error:
 syscomm:   
 	.asciz  "gpicview steg.pgm"
 file1:
-	.asciz	"dog.pgm"
+	.asciz	"dragon.pgm"
 file2:
 	.asciz	"hiddenMessage.txt"
 file3:
