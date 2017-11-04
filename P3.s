@@ -115,16 +115,16 @@ hideMessage:
 	mov  r7, r1 // address of encrypted message
 	mov  r8, r2 // length of message in bytes
 	mov  r9, r3 // key value of cipher
-	mov r10, #0 // cursor for current position in image
+	mov r10, #5 // cursor for current position in image
 
 	// Calculate total space needed
 	ldr  r2, =width
 	ldr  r2, [r2]
 	ldr  r3, =height
 	ldr  r3, [r3]
-	mul  r12, r2, r3
+	mul  r5, r2, r3
 	// Allocate space for the new image
-	mov  r0, r12
+	mov  r0, r5
 	bl   malloc
 	mov  r6, r0
 	
@@ -138,7 +138,7 @@ hideMessage:
 
 	messageLoop:
 		subs r8, r8, #1
-		blt doneHide
+		blt doneHide      // end of hidden message
 		
 		ldrb r0, [r7, r8] // process the hidden message one byte at a time
 		mov r1, #1
@@ -171,7 +171,7 @@ hide:
 		ldrb r7, [r4, r10]  // current byte in original image
 		
 		bfi r7, r0, #0, #2  // replace bits 0-2
-		lsl r0, r0, #2	    // shift 2 bits
+		lsr r0, r0, #2	    // shift 2 bits
 		
 		strb r7, [r6, r10]  // store to new image
 
@@ -184,6 +184,18 @@ hide:
 
 
 doneHide:
+	// write the rest of the image without any hidden message
+	sub r10, r10, #1
+	finishLoop:
+		add r10, r10, #1 // image cursor
+		cmp r10, r5     // size of image
+		bgt beginWrite
+
+		ldrb r7, [r4, r10]
+		strb r7, [r6, r10]
+		b finishLoop
+beginWrite:
+	
 	ldr  r0, =file3
 	mov  r1, r6
 	bl   writeimage
@@ -237,7 +249,7 @@ readHiddenMessage:
 
 	returnSize:
 		mov r0, r5 // return address of message
-		mov r1, r9 // return number of bytes read
+		mov r1, r8 // return number of bytes read
 		ldmfd sp!, {r4, r5, r6, r7, r8, r9, lr}
 		mov pc, lr
 
@@ -267,8 +279,8 @@ main:
 
 	// mov r1, r0
 	// Hide message in the image and write it out
-	mov  r2, r1   // size of message to hide
-	mov  r1, r0   // address of message
+	mov  r2, r7   // size of message to hide
+	mov  r1, r6   // address of message
 	mov  r0, r4   // address of image read
 	
 	bl   hideMessage 
