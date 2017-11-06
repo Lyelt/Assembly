@@ -57,20 +57,23 @@ readimage:
 	mov  r1, r6
 	ldmfd sp!, {r4,r5,r6,lr}
 	mov  pc, lr
-	
+
+// ----------------------------------------------------------------------------
+// Parameters: r0 = filename
+//	       r1 = new image to write
 writeimage:
 	stmfd sp!, {r4,r5,r6,r7,lr}
 
-	mov  r7, r1
-	ldr  r1, =wmode
-	bl   fopen
-	mov  r4, r0
+	mov  r7, r1     // location of new image
+	ldr  r1, =wmode // "w"
+	bl   fopen	// open file for writing
+	mov  r4, r0     // addr of open file
 
-	ldr  r1, =outfmt1
+	ldr  r1, =outfmt1 // write the code
 	ldr  r2, =code
 	bl   fprintf
 	
-	mov  r0, r4
+	mov  r0, r4	  // write the width and height
 	ldr  r1, =outfmt2
 	ldr  r2, =width
 	ldr  r2, [r2]
@@ -78,22 +81,22 @@ writeimage:
 	ldr  r3, [r3]
 	bl   fprintf
 
-	mov  r0, r4
+	mov  r0, r4	   // write the max val
 	ldr  r1, =outfmt3
 	ldr  r2, =maxval
 	ldr  r2, [r2]
-	bl   fprintf
+	bl   fprintf	  
 
-	ldr  r2, =width
+	ldr  r2, =width    // calculate image size
 	ldr  r2, [r2]
 	ldr  r3, =height
 	ldr  r3, [r3]
 	mul  r6, r2, r3
 
-	mov  r0, r7
-	mov  r1, #1
-	mov  r2, r6
-	mov  r3, r4
+	mov  r0, r7 // location of new image data
+	mov  r1, #1 // 1 byte each
+	mov  r2, r6 // image size
+	mov  r3, r4 // location of open file
 	bl   fwrite
 
 	mov  r0, r4
@@ -253,6 +256,35 @@ readHiddenMessage:
 		ldmfd sp!, {r4, r5, r6, r7, r8, r9, lr}
 		mov pc, lr
 
+// ---------------------------------------------------------------------
+// Parameters: r0 = address of message 
+//             r1 = length of message
+// Returns:    r0 = address of message after encryption
+//	       r1 = encryption key value
+encryptMessage:
+	stmfd sp!, {r4, r5, r6, r7, r8, r9, r10, lr}
+	
+	mov r4, #56 // randomly generate
+
+	mov r7, #0
+	encryptLoop:
+		cmp r7, r1
+		bgt endEncrypt
+
+		ldrb r5, [r0, r7] // original byte
+		add r5, r5, r4    // key
+		strb r5, [r0, r7] // store back
+
+		add r7, r7, #1
+		b encryptLoop
+
+	endEncrypt:
+		mov r1, r4		
+		ldmfd sp!, {r4, r5, r6, r7, r8, r9, r10, lr}
+		mov pc, lr
+
+// ---------------------------------------------------------------------
+
 main:
 	// User inputs name of image and file
 	// bl userInput
@@ -273,9 +305,8 @@ main:
 	mov r6, r0
 	mov r7, r1
 	// Encrypt the message with a cipher
-	// bl encryptMessage
+	bl encryptMessage
 	// r0 contains message after encryption
-	// r1 contains size of message
 
 	// mov r1, r0
 	// Hide message in the image and write it out
