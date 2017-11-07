@@ -264,7 +264,14 @@ readHiddenMessage:
 encryptMessage:
 	stmfd sp!, {r4, r5, r6, r7, r8, r9, r10, lr}
 	
-	mov r4, #56 // randomly generate
+	mov r0, #0
+	bl time
+	bl srand
+	bl rand
+	mov r7, #127
+	ands r4, r0, r7 // mod 127
+
+	//mov r4, #56 // randomly generate
 
 	mov r7, #0
 	encryptLoop:
@@ -339,7 +346,7 @@ error:
 syscomm:   
 	.asciz  "gpicview steg.pgm"
 file1:
-	.asciz	"dragon.pgm"
+	.asciz	"bird.pgm"
 file2:
 	.asciz	"hiddenMessage.txt"
 file3:
