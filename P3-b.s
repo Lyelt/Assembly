@@ -59,12 +59,40 @@ readimage:
 	mov  pc, lr
 
 // ----------------------------------------------------------------------------
-// Parameters: r0 = filename
-//	       r1 = address of text to write
-//             r2 = size of message
+// Parameters: r0 = address of message
+//	       r1 = length of message
+//             
 writefile:
 	stmfd sp!, {r4,r5,r6,r7,lr}
+	
+	mov r5, r0
+	mov r6, r1
 
+	ldr r0, =file2
+	ldr r1, =wmode
+	bl fopen
+	mov r4, r0
+
+	//mov r0, r5
+	//mov r1, #1
+//	mov r2, r6
+	//mov r3, r4
+//	bl fwrite
+	mov r7, #0
+	writeLoop:
+		mov r0, r4
+		ldr r1, =infmt3
+		ldr r2, [r5, r7]
+		bl fprintf
+
+		add r7, r7, #1
+		cmp r7, r6
+		bge doneWrite
+		b writeLoop
+
+	doneWrite:
+		mov r0, r4
+		bl fclose
 
 	ldmfd sp!, {r4,r5,r6,r7,lr}
 	mov  pc, lr
@@ -83,20 +111,18 @@ extract:
 	mov r6, #0
 	outer:
 		mov r5, #4 // one byte's info is hidden across 4 bytes
+		add r6, r6, #1
+		cmp r6, r1 // return if we extracted the proper number of bytes
+		bgt return
 		b inner
-
-		strb r8, [r0, r6] // newly constructed byte
-		
-		add  r6, r6, #1 // return if we extracted the proper number of bytes
-		cmp  r6, r1
-		bge  return
 	
 	// Loop through each byte, two bits at a time
 	inner:
 		subs r5, r5, #1
+		strblt r8, [r0, r6]  // if we're done with the inner loop, store the byte
 		blt outer
 		
-		ldrb r7, [r4, r10]  // current byte in original image
+		ldrb r7, [r4, r10]   // current byte in original image
 		
 		ubfx r8, r7, #0, #2  // extract bits 0-2
 		lsl  r8, r8, #2	     // shift 2 bits
@@ -112,7 +138,7 @@ extract:
 // Parameters: r0 = address of image data location
 //	       r1 = size of image in bytes
 // Returns:    r0 = address of message
-//	       
+//	       r1 = size of message
 extractHiddenMessage:
 	stmfd sp!, {r4, r5, r6, r7, r8, r9, lr}
 	mov r10, #5 // cursor for image reading
@@ -138,6 +164,7 @@ extractHiddenMessage:
 
 	extractLoop:
 		subs r7, r7, #1
+		cmp r7, #0
 		blt doneExtract    // end of message
 
 		ldrb r0, [r5, r7]  // location to read into
@@ -148,6 +175,8 @@ extractHiddenMessage:
 
 	doneExtract:
 		mov r0, r5 // return address of message
+		ldr r1, =size
+		ldr r1, [r1] // return size of message
 		ldmfd sp!, {r4, r5, r6, r7, r8, r9, lr}
 		mov pc, lr
 
@@ -223,9 +252,8 @@ syscomm:
 file1:
 	.asciz	"steg.pgm"
 file2:
-	.asciz	"decryptedMessage.txt"
-//file3:
-//	.asciz	"steg.pgm"
+	.asciz	"steg.txt"
+
 errorMsg:
 	.asciz  "Something went wrong.\n"
 flushy:
@@ -235,7 +263,7 @@ infmt1:
 infmt2:
 	.asciz	"%i %i"
 infmt3:
-	.asciz	"%i"
+	.asciz	"%i "
 outfmt1:
 	.asciz  "%s\n"
 outfmt2:
