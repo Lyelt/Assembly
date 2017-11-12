@@ -73,11 +73,6 @@ writefile:
 	bl fopen
 	mov r4, r0
 
-	//mov r0, r5
-	//mov r1, #1
-//	mov r2, r6
-	//mov r3, r4
-//	bl fwrite
 	mov r7, #0
 	writeLoop:
 		mov r0, r4
@@ -228,7 +223,7 @@ main:
 	bl extractHiddenMessage
 	mov  r5, r0 // second result of malloc
 
-	bl decryptMessage
+	//bl decryptMessage
 	bl writefile
 
 	mov  r0, r4
@@ -277,7 +272,7 @@ outfmt3:
 rmode:
 	.asciz  "rb"
 wmode:
-	.asciz  "wb"
+	.asciz  "w"
 code:
 	.space 3
 	.align 2
@@ -287,6 +282,7 @@ height:
 	.word 0
 maxval:
 	.word 0
+	.align 1
 key:
 	.byte 0
 size:

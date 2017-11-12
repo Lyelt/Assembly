@@ -271,8 +271,6 @@ encryptMessage:
 	mov r7, #127
 	ands r4, r0, r7 // mod 127
 
-	//mov r4, #56 // randomly generate
-
 	mov r7, #0
 	encryptLoop:
 		cmp r7, r1
@@ -280,6 +278,8 @@ encryptMessage:
 
 		ldrb r5, [r0, r7] // original byte
 		add r5, r5, r4    // key
+		cmp r5, #127
+		subgt r5, r5, #127
 		strb r5, [r0, r7] // store back
 
 		add r7, r7, #1
@@ -312,7 +312,7 @@ main:
 	mov r6, r0
 	mov r7, r1
 	// Encrypt the message with a cipher
-	bl encryptMessage
+	//bl encryptMessage
 	// r0 contains message after encryption
 
 	// mov r1, r0
