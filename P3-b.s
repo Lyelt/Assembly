@@ -102,32 +102,35 @@ writefile:
 //             r1 = size of data to extract in bytes
 // 
 extract:
-	// r0 contains the data
+	// r0 contains the data area
 	// r1 contains the number of times to loop (ie. number of bytes)
 	// r4 will be addr of original image
 	// r10 will be cursor for original image
 	stmfd sp!, {r5, r7, r8, r9, r12, lr}
 	
-	mov r6, #0
 	outer:
-		mov r5, #4 // one byte's info is hidden across 4 bytes
-		add r6, r6, #1
-		cmp r6, r1 // return if we extracted the proper number of bytes
-		bgt return
+		mov r5, #0  // one byte's info is hidden across 4 bytes
+		mov r8, #0  // clear the register we'll store the current byte in
+		subs r1, r1, #1
+		blt return  // return if we extracted the proper number of bytes
 		b inner
 	
 	// Loop through each byte, two bits at a time
 	inner:
-		subs r5, r5, #1
-		strblt r8, [r0, r6]  // if we're done with the inner loop, store the byte
-		blt outer
+		cmp r5, #4	     // loop 4 times per byte
+		strbge r8, [r0, r1]  // if we're done with the inner loop, store the byte
+		bge outer
 		
 		ldrb r7, [r4, r10]   // current byte in original image
 		
-		ubfx r8, r7, #0, #2  // extract bits 0-2
-		lsl  r8, r8, #2	     // shift 2 bits
+		ubfx r9, r7, #0, #2  // extract bits 0-2
+		mov  r11, #2
+		mul  r11, r5, r11    // shift based on current position in the byte
+		lsl  r9, r9, r11 
+		orr  r8, r8, r9	     // OR extracted bits 
 
 		add r10, r10, #1
+		add r5, r5, #1
 		b inner
 
 	return:
@@ -152,7 +155,7 @@ extractHiddenMessage:
 
 	// extract the number of chars
 	ldr r0, =size // address to read into
-	mov r1, #4    // number of bytes to read
+	mov r1, #1 //#4    // number of bytes to read
 	bl extract    
 
 	ldr r0, =key  // extract the key value
@@ -167,7 +170,8 @@ extractHiddenMessage:
 		cmp r7, #0
 		blt doneExtract    // end of message
 
-		ldrb r0, [r5, r7]  // location to read into
+		//ldrb r0, [r5, r7]  // location to read into
+		add r0, r5, r7
 		mov  r1, #1 	   // one byte at a time
 		bl extract
 
@@ -263,7 +267,7 @@ infmt1:
 infmt2:
 	.asciz	"%i %i"
 infmt3:
-	.asciz	"%i "
+	.asciz	"%c "
 outfmt1:
 	.asciz  "%s\n"
 outfmt2:
@@ -286,4 +290,4 @@ maxval:
 key:
 	.byte 0
 size:
-	.word 0
+	.byte 0 //.word 0
