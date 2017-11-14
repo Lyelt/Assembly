@@ -118,7 +118,7 @@ hideMessage:
 	mov  r7, r1 // address of encrypted message
 	mov  r8, r2 // length of message in bytes
 	mov  r9, r3 // key value of cipher
-	mov r10, #5 // cursor for current position in image
+	mov r10, #0 // cursor for current position in image
 
 	// Calculate total space needed
 	ldr  r2, =width
@@ -138,14 +138,19 @@ hideMessage:
 	mov r0, r9
 	mov r1, #1 // 1 byte in key value
 	bl hide
-
+	
+	mov r12, #0
 	messageLoop:
-		subs r8, r8, #1
-		blt doneHide      // end of hidden message
+		//subs r8, r8, #1
+		//blt doneHide      // end of hidden message
 		
 		ldrb r0, [r7, r8] // process the hidden message one byte at a time
 		mov r1, #1
 		bl hide
+
+		add r12, r12, #1
+		cmp r12, r8     // end of hidden message
+		bge doneHide
 
 		b messageLoop
 
@@ -160,6 +165,7 @@ hide:
 	// r6 will be addr of new image (global)
 	// r10 will be cursor (global) 
 	stmfd sp!, {r5, r7, r8, r9, r12, lr}
+	
 	outer:
 		subs  r1, r1, #1 // Loop as many times as necessary
 		blt return
@@ -317,6 +323,7 @@ main:
 
 	// mov r1, r0
 	// Hide message in the image and write it out
+	mov  r3, #10  // r1 would have encryption key
 	mov  r2, r7   // size of message to hide
 	mov  r1, r6   // address of message
 	mov  r0, r4   // address of image read

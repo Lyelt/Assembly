@@ -139,7 +139,7 @@ extract:
 //	       r1 = size of message
 extractHiddenMessage:
 	stmfd sp!, {r4, r5, r6, r7, r8, r9, lr}
-	mov r10, #5 // cursor for image reading
+	mov r10, #0 // cursor for image reading
 	mov r4, r0  // address of original image
 
 	mov r6, #4
