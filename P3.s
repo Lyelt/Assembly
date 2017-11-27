@@ -269,15 +269,18 @@ readHiddenMessage:
 //	       r1 = encryption key value
 encryptMessage:
 	stmfd sp!, {r4, r5, r6, r7, r8, r9, r10, lr}
-	
+	mov r5, r0
 	mov r0, #0
 	bl time
 	bl srand
 	bl rand
 	mov r7, #127
 	ands r4, r0, r7 // mod 127
+	//temp
+	mov r4, #89
 
 	mov r7, #0
+	mov r0, r5
 	encryptLoop:
 		cmp r7, r1
 		bgt endEncrypt
@@ -285,7 +288,7 @@ encryptMessage:
 		ldrb r5, [r0, r7] // original byte
 		add r5, r5, r4    // key
 		cmp r5, #127
-		subgt r5, r5, #127
+		subgt r5, r5, #128
 		strb r5, [r0, r7] // store back
 
 		add r7, r7, #1
@@ -318,7 +321,7 @@ main:
 	mov r6, r0
 	mov r7, r1
 	// Encrypt the message with a cipher
-	//bl encryptMessage
+	bl encryptMessage
 	// r0 contains message after encryption
 
 	// mov r1, r0
@@ -353,9 +356,9 @@ error:
 syscomm:   
 	.asciz  "gpicview steg.pgm"
 file1:
-	.asciz	"bird.pgm"
+	.asciz	"obama.pgm"//"bird.pgm"
 file2:
-	.asciz	"hiddenMessage.txt"
+	.asciz	"christmas.txt"//"hiddenMessage.txt"
 file3:
 	.asciz	"steg.pgm"
 errorMsg:

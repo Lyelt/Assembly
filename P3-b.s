@@ -223,7 +223,7 @@ main:
 	bl extractHiddenMessage
 	mov  r5, r0 // second result of malloc
 
-	//bl decryptMessage
+	bl decryptMessage
 	bl writefile
 
 	mov  r0, r4
@@ -245,11 +245,8 @@ error:
 	svc #0
 
 	.data
-
-syscomm:   
-	.asciz  "gpicview steg.pgm"
 file1:
-	.asciz	"steg.pgm"
+	.asciz	"stego.pgm"
 file2:
 	.asciz	"steg.txt"
 
