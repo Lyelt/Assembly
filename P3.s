@@ -6,6 +6,26 @@
 
 	.text
 
+userInput:
+	stmfd sp!, {r4, r5, r6, lr}
+
+	ldr r0, =picPrompt
+	bl printf
+
+	ldr r1, =file1
+	ldr r0, =infmt1
+	bl scanf
+
+	ldr r0, =msgPrompt
+	bl printf
+
+	ldr r1, =file2
+	ldr r0, =infmt1
+	bl scanf
+
+	ldmfd sp!, {r4, r5, r6, lr}
+	mov pc, lr
+
 readimage:
 	stmfd sp!, {r4,r5,r6,lr}
 	// filename in r0
@@ -141,9 +161,6 @@ hideMessage:
 	
 	mov r12, #0
 	messageLoop:
-		//subs r8, r8, #1
-		//blt doneHide      // end of hidden message
-		
 		ldrb r0, [r7, r8] // process the hidden message one byte at a time
 		mov r1, #1
 		bl hide
@@ -205,6 +222,17 @@ doneHide:
 		b finishLoop
 beginWrite:
 	
+	ldr  r0, =outMsg
+	bl   printf
+
+	ldr  r0, =sizeMsg
+	mov  r1, r8
+	bl   printf
+
+	ldr  r0, =keyMsg
+	mov  r1, r9
+	bl   printf
+
 	ldr  r0, =file3
 	mov  r1, r6
 	bl   writeimage
@@ -276,8 +304,6 @@ encryptMessage:
 	bl rand
 	mov r7, #127
 	ands r4, r0, r7 // mod 127
-	//temp
-	mov r4, #89
 
 	mov r7, #0
 	mov r0, r5
@@ -303,7 +329,7 @@ encryptMessage:
 
 main:
 	// User inputs name of image and file
-	// bl userInput
+	bl userInput
 	// Read the original image
 	ldr  r0, =file1
 	bl   readimage
@@ -326,7 +352,7 @@ main:
 
 	// mov r1, r0
 	// Hide message in the image and write it out
-	mov  r3, #10  // r1 would have encryption key
+	mov  r3, r1 // r1 would have encryption key
 	mov  r2, r7   // size of message to hide
 	mov  r1, r6   // address of message
 	mov  r0, r4   // address of image read
@@ -356,11 +382,21 @@ error:
 syscomm:   
 	.asciz  "gpicview steg.pgm"
 file1:
-	.asciz	"obama.pgm"//"bird.pgm"
+	.space 80
 file2:
-	.asciz	"christmas.txt"//"hiddenMessage.txt"
+	.space 80
 file3:
 	.asciz	"steg.pgm"
+picPrompt:
+	.asciz "Please enter the name of the image: \n"
+msgPrompt:
+	.asciz "Please enter the file containing the message to hide: \n"
+outMsg:
+	.asciz "Your file can be found in steg.pgm\n"
+sizeMsg:
+	.asciz "Message size: %i bytes\n"
+keyMsg:
+	.asciz "Cipher key: %i\n"
 errorMsg:
 	.asciz  "Something went wrong.\n"
 flushy:

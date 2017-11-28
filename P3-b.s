@@ -6,6 +6,19 @@
 
 	.text
 
+userInput:
+	stmfd sp!, {r4,r5,r6,lr}
+
+	ldr r0, =inPrompt
+	bl  printf
+
+	ldr r0, =infmt1
+	ldr r1, =file1
+	bl  scanf
+
+	ldmfd sp!, {r4,r5,r6,lr}
+	mov pc, lr
+
 readimage:
 	stmfd sp!, {r4,r5,r6,lr}
 	// filename in r0
@@ -150,7 +163,7 @@ extractHiddenMessage:
 
 	// extract the number of chars
 	ldr r0, =size // address to read into
-	mov r1, #1 //#4    // number of bytes to read
+	mov r1, #4    // number of bytes to read
 	bl extract    
 
 	ldr r0, =key  // extract the key value
@@ -165,8 +178,7 @@ extractHiddenMessage:
 		cmp r7, #0
 		blt doneExtract    // end of message
 
-		//ldrb r0, [r5, r7]  // location to read into
-		add r0, r5, r7
+		ldrb r0, [r5, r7]  // location to read into
 		mov  r1, #1 	   // one byte at a time
 		bl extract
 
@@ -198,7 +210,7 @@ decryptMessage:
 		ldrb r5, [r0, r7] // original byte
 		sub r5, r5, r4    // key
 		cmp r5, #0
-		addlt r5, r5, #128
+		addlt r5, r5, #128 // wrap around
 		strb r5, [r0, r7] // store back
 
 		add r7, r7, #1
@@ -212,7 +224,7 @@ decryptMessage:
 
 main:
 	// User inputs name of image and file
-	// bl userInput
+	 bl userInput
 	// Read the original image
 	ldr  r0, =file1
 	bl   readimage
@@ -225,6 +237,15 @@ main:
 
 	bl decryptMessage
 	bl writefile
+
+	ldr r0, =outMsg
+	bl  printf
+	ldr r0, =sizeMsg
+	ldr r1, =size
+	bl  printf
+	ldr r0, =keyMsg
+	ldr r1, =key
+	bl  printf
 
 	mov  r0, r4
 	bl   free
@@ -246,10 +267,17 @@ error:
 
 	.data
 file1:
-	.asciz	"stego.pgm"
+	.space  80
 file2:
 	.asciz	"steg.txt"
-
+inPrompt:
+	.asciz  "Please enter the name of the image to decode:\n"
+outMsg:
+	.asciz  "Your hidden message can be found in steg.txt\n"
+sizeMsg:
+	.asciz  "Message size was %i bytes\n"
+keyMsg:
+	.asciz  "Cipher key was %i\n"
 errorMsg:
 	.asciz  "Something went wrong.\n"
 flushy:
@@ -277,10 +305,12 @@ width:
 	.word 0
 height: 
 	.word 0
+size:
+	.word 0
 maxval:
 	.word 0
 	.align 1
 key:
 	.byte 0
-size:
-	.byte 0 //.word 0
+//size:
+	//.byte 0 //.word 0
